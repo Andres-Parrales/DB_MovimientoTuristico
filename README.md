@@ -33,3 +33,10 @@ Una vez configurado, ejecuta el proceso de carga:
 Bash
 python ETL/pipeline_turismo.py
 Detalle Técnico: Esquema | Detalle Técnico: Pipeline ETL
+````
+## Análisis de Implementación
+El desarrollo de este sistema permitió profundizar en la generación de datos sintéticos de alta fidelidad. El reto técnico fue asegurar que las relaciones entre dimensiones y hechos mantuvieran una integridad absoluta, garantizando que el modelo sea apto para análisis de BI complejos. Este proyecto consolida mi capacidad para diseñar estructuras de datos escalables que facilitan la extracción de indicadores clave.
+
+## Roadmap de Mejora
+* Próximos pasos: Implementar pruebas de calidad de datos automatizadas para monitorear la integridad durante la ingesta.
+* Próximos pasos: Migrar la infraestructura hacia una arquitectura basada en microservicios para mejorar la concurrencia en la carga de grandes volúmenes de datos.
