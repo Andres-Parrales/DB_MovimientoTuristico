@@ -1,27 +1,35 @@
-
 Markdown
-# ✈️ TurismoAnalytics V1.0: Core de Inteligencia Turística
+# TurismoAnalytics V1.0: Core de Inteligencia Turística
 
-> Ecosistema de datos diseñado para el análisis del ciclo de vida del viajero: de la reserva a la evaluación.
+Ecosistema de datos diseñado para el análisis del ciclo de vida del viajero, desde la reserva hasta la evaluación de servicios.
 
 ![Status](https://img.shields.io/badge/Status-Stable-brightgreen)
 ![Model](https://img.shields.io/badge/Model-Star_Schema-blue)
 ![Stack](https://img.shields.io/badge/Stack-Python|SQL|ETL-orange)
 
-## 🚀 Despliegue Profesional (3 Pasos)
+## Guía de Despliegue Profesional
 
-### 1. Entorno de Ejecución
-Instala las dependencias necesarias para el motor ETL:
+### 1. Entorno de Ejecución y Dependencias
+Para ejecutar el pipeline, se requiere Python 3.x y las siguientes librerías de procesamiento y conexión:
+
 ```bash
 pip install pandas sqlalchemy pymysql faker tqdm
 2. Estructura de Datos
-Configura el esquema relacional en tu motor MySQL:
+Inicializa el motor de base de datos ejecutando el script de esquema. Esto creará las dimensiones, tablas de hechos y la tabla de calendario necesaria para el análisis BI:
 
 SQL
 SOURCE SCHEMA/schema_turismo.sql;
 3. Orquestación del Pipeline
-Actualiza tus credenciales en ETL/pipeline_turismo.py y ejecuta:
+El proceso de carga requiere la definición de credenciales de acceso. Edita los parámetros en ETL/pipeline_turismo.py:
+
+Python
+# Configuración en ETL/pipeline_turismo.py
+USER = "tu_usuario"
+PASSWORD = "tu_password"
+HOST = "localhost"
+DB = "turismo_analytics"
+Una vez configurado, ejecuta el proceso de carga:
 
 Bash
 python ETL/pipeline_turismo.py
-Explora el detalle técnico en: SCHEMA | ETL
+Detalle Técnico: Esquema | Detalle Técnico: Pipeline ETL
