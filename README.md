@@ -13,6 +13,12 @@ Ecosistema de datos diseñado para el análisis del ciclo de vida del viajero, d
 Para ejecutar el pipeline, se requiere Python 3.x y las siguientes librerías de procesamiento y conexión:
 
 ```bash
+
+Guía de Despliegue Profesional
+1. Entorno de Ejecución y Dependencias
+Para ejecutar el pipeline, se requiere Python 3.x y las siguientes librerías de procesamiento y conexión:
+
+Bash
 pip install pandas sqlalchemy pymysql faker tqdm
 2. Estructura de Datos
 Inicializa el motor de base de datos ejecutando el script de esquema. Esto creará las dimensiones, tablas de hechos y la tabla de calendario necesaria para el análisis BI:
