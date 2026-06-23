@@ -4,149 +4,225 @@ import pandas as pd
 from sqlalchemy import create_engine
 from faker import Faker
 from tqdm import tqdm
-import time
 
 # ==========================================
-# 1. CONFIGURACIÓN Y CONEXIÓN POSTGRESQL
+# 1. CONEXIÓN
 # ==========================================
 
 USER = "postgres"
-PASSWORD = "YOU_PASSWORD"
+PASSWORD = "YOU_PASS"
 HOST = "localhost"
 PORT = "5432"
-DB = "YOU_DATABASE_NAME"
+DB = "turism_db"
+
+engine = create_engine(
+    f"postgresql+psycopg2://{USER}:{PASSWORD}@{HOST}:{PORT}/{DB}"
+)
 
 try:
-    engine = create_engine(
-        f"postgresql+psycopg2://{USER}:{PASSWORD}@{HOST}:{PORT}/{DB}"
-    )
-
     pd.read_sql("SELECT 1", engine)
-    print(f"✔ Conexión exitosa a PostgreSQL (Base de datos: {DB})\n")
-
+    print("✔ Conexión exitosa a PostgreSQL\n")
 except Exception as e:
-    print(f"❌ Error al conectar a la base de datos: {e}")
+    print(f"❌ Error conexión: {e}")
 
-    engine = create_engine(
-        f"postgresql+psycopg2://{USER}:{PASSWORD}@{HOST}:{PORT}/{DB}"
-    )
-
-# Faker en español
-fake = Faker("es_ES")
+fake = Faker()
 
 # ==========================================
-# 2. FUNCIONES ETL (NO CAMBIAN LÓGICA)
+# 2. DATA GEOGRÁFICA REAL
+# ==========================================
+
+PAISES = {
+    "Colombia": {
+        "codigo": "COL",
+        "ciudades": [
+            "Bogotá", "Medellín", "Cali", "Barranquilla", "Cartagena",
+            "Bucaramanga", "Pereira", "Santa Marta", "Manizales",
+            "Villavicencio", "Cúcuta", "Pasto"
+        ]
+    },
+    "Mexico": {
+        "codigo": "MEX",
+        "ciudades": [
+            "Ciudad de México", "Guadalajara", "Monterrey",
+            "Cancún", "Tulum", "Puebla", "Oaxaca", "Mérida"
+        ]
+    },
+    "Peru": {
+        "codigo": "PER",
+        "ciudades": [
+            "Lima", "Cusco", "Arequipa", "Trujillo", "Iquitos",
+            "Puno", "Chiclayo"
+        ]
+    },
+    "Argentina": {
+        "codigo": "ARG",
+        "ciudades": [
+            "Buenos Aires", "Córdoba", "Rosario", "Mendoza",
+            "Bariloche", "Salta"
+        ]
+    },
+    "Chile": {
+        "codigo": "CHL",
+        "ciudades": [
+            "Santiago", "Valparaíso", "Viña del Mar",
+            "La Serena", "Concepción", "Punta Arenas"
+        ]
+    },
+    "Brasil": {
+        "codigo": "BRA",
+        "ciudades": [
+            "São Paulo", "Rio de Janeiro", "Brasília",
+            "Salvador", "Fortaleza", "Manaus"
+        ]
+    }
+}
+
+CATEGORIAS = [
+    ("Aventura", "Tours extremos"),
+    ("Cultural", "Experiencias culturales"),
+    ("Playa", "Destinos de playa"),
+    ("Gastronomía", "Comida local"),
+    ("Ecoturismo", "Naturaleza y sostenibilidad")
+]
+
+# ==========================================
+# 3. HELPERS FECHAS (FIX ERROR)
+# ==========================================
+
+def safe_date(fn, *args, **kwargs):
+    return fn(*args, **kwargs)
+
+# ==========================================
+# 4. DIMENSIONALES
 # ==========================================
 
 def cargar_paises():
-    paises = [
-        ("Colombia", "COL"), ("Mexico", "MEX"), ("Peru", "PER"),
-        ("Argentina", "ARG"), ("Chile", "CHL"), ("Brasil", "BRA")
-    ]
-    df = pd.DataFrame(paises, columns=["nombre_pais", "codigo_iso"])
+    df = pd.DataFrame(
+        [(k, v["codigo"]) for k, v in PAISES.items()],
+        columns=["nombre_pais", "codigo_iso"]
+    )
     df.to_sql("paises", engine, if_exists="append", index=False)
 
+
 def cargar_categorias():
-    categorias = [
-        ("Aventura", "Tours extremos y naturaleza"),
-        ("Cultural", "Experiencias históricas"),
-        ("Playa", "Destinos costeros"),
-        ("Gastronomía", "Experiencias culinarias"),
-        ("Ecoturismo", "Turismo sostenible")
-    ]
-    df = pd.DataFrame(categorias, columns=["nombre_categoria", "descripcion"])
+    df = pd.DataFrame(CATEGORIAS, columns=["nombre_categoria", "descripcion"])
     df.to_sql("categorias_tour", engine, if_exists="append", index=False)
 
+
 def cargar_metodos_pago():
-    metodos = [
-        ("Tarjeta Crédito",), ("Tarjeta Débito",),
-        ("Transferencia",), ("PSE",), ("Efectivo",)
-    ]
-    df = pd.DataFrame(metodos, columns=["nombre_metodo"])
+    df = pd.DataFrame(
+        [("Tarjeta Crédito",), ("Tarjeta Débito",),
+         ("Transferencia",), ("PSE",), ("Efectivo",)],
+        columns=["nombre_metodo"]
+    )
     df.to_sql("metodos_pago", engine, if_exists="append", index=False)
 
-def cargar_clientes():
-    clientes = []
-    for _ in range(5000):
-        clientes.append([
+# ==========================================
+# 5. CLIENTES
+# ==========================================
+
+def cargar_clientes(n=20000):
+    ciudades = [c for p in PAISES.values() for c in p["ciudades"]]
+
+    data = []
+    for _ in range(n):
+        data.append([
             fake.first_name(),
             fake.last_name(),
             fake.unique.email(),
             fake.phone_number()[:30],
-            fake.date_of_birth(minimum_age=18, maximum_age=65),
+            safe_date(fake.date_of_birth, minimum_age=18, maximum_age=65),
             random.choice(["M", "F", "Otro"]),
-            fake.city(),
-            fake.date_between("-3y", "today")
+            random.choice(ciudades),
+            safe_date(fake.date_between, "-3y", "today")
         ])
 
-    df = pd.DataFrame(clientes, columns=[
+    df = pd.DataFrame(data, columns=[
         "nombre", "apellido", "email", "telefono",
         "fecha_nacimiento", "genero", "ciudad", "fecha_registro"
     ])
 
     df.to_sql("clientes", engine, if_exists="append", index=False)
 
-def cargar_empleados():
-    cargos = ["Asesor", "Supervisor", "Gerente", "Coordinador"]
-    empleados = []
+# ==========================================
+# 6. EMPLEADOS
+# ==========================================
 
-    for _ in range(100):
-        empleados.append([
+def cargar_empleados(n=300):
+    cargos = ["Asesor", "Supervisor", "Gerente", "Coordinador"]
+
+    data = []
+    for _ in range(n):
+        data.append([
             fake.first_name(),
             fake.last_name(),
             random.choice(cargos),
-            fake.date_between("-5y", "-1y"),
-            round(random.uniform(1800000, 7000000), 2),
+            safe_date(fake.date_between, "-5y", "-1y"),
+            round(random.uniform(1800000, 9000000), 2),
             True
         ])
 
-    df = pd.DataFrame(empleados, columns=[
+    df = pd.DataFrame(data, columns=[
         "nombre", "apellido", "cargo",
         "fecha_contratacion", "salario", "activo"
     ])
 
     df.to_sql("empleados", engine, if_exists="append", index=False)
 
+# ==========================================
+# 7. DESTINOS (REALISTAS Y ESCALABLES)
+# ==========================================
+
 def cargar_destinos():
     df_paises = pd.read_sql("SELECT * FROM paises", engine)
-    destinos = []
 
-    for _ in range(200):
-        pais = df_paises.sample(1).iloc[0]
-        destinos.append([
-            fake.city()[:150],
-            int(pais["id_pais"]),
-            fake.city()[:100],
-            random.choice(["Playa", "Montaña", "Ciudad", "Selva"])
-        ])
+    data = []
 
-    df = pd.DataFrame(destinos, columns=[
+    for _, pais in df_paises.iterrows():
+        ciudades = PAISES[pais["nombre_pais"]]["ciudades"]
+
+        for ciudad in ciudades:
+            for _ in range(6):  # volumen alto controlado
+                categoria = random.choice(["Playa", "Montaña", "Ciudad", "Selva", "Cultural"])
+
+                data.append([
+                    f"{ciudad} Experience",
+                    int(pais["id_pais"]),
+                    ciudad,
+                    categoria
+                ])
+
+    df = pd.DataFrame(data, columns=[
         "nombre_destino", "id_pais", "ciudad", "categoria_destino"
     ])
 
     df.to_sql("destinos", engine, if_exists="append", index=False)
 
-def cargar_tours():
+# ==========================================
+# 8. TOURS
+# ==========================================
+
+def cargar_tours(n=8000):
     df_destinos = pd.read_sql("SELECT * FROM destinos", engine)
-    df_categorias = pd.read_sql("SELECT * FROM categorias_tour", engine)
+    df_cat = pd.read_sql("SELECT * FROM categorias_tour", engine)
 
-    tours = []
+    data = []
 
-    for _ in range(500):
-        destino = df_destinos.sample(1).iloc[0]
-        categoria = df_categorias.sample(1).iloc[0]
+    for _ in range(n):
+        d = df_destinos.sample(1).iloc[0]
+        c = df_cat.sample(1).iloc[0]
 
-        tours.append([
-            f"Tour {fake.word()} {fake.random_number(3)}"[:150],
-            int(destino["id_destino"]),
-            int(categoria["id_categoria"]),
-            round(random.uniform(500000, 5000000), 2),
-            random.randint(2, 15),
+        data.append([
+            f"Tour en {d['ciudad']} - {c['nombre_categoria']}",
+            int(d["id_destino"]),
+            int(c["id_categoria"]),
+            round(random.uniform(200000, 7000000), 2),
+            random.randint(1, 10),
             random.randint(5, 40),
             True
         ])
 
-    df = pd.DataFrame(tours, columns=[
+    df = pd.DataFrame(data, columns=[
         "nombre_tour", "id_destino", "id_categoria",
         "precio_base", "duracion_dias",
         "capacidad_maxima", "activo"
@@ -154,36 +230,37 @@ def cargar_tours():
 
     df.to_sql("tours", engine, if_exists="append", index=False)
 
-def cargar_reservas():
-    df_clientes = pd.read_sql("SELECT * FROM clientes", engine)
-    df_empleados = pd.read_sql("SELECT * FROM empleados", engine)
-    df_tours = pd.read_sql("SELECT * FROM tours", engine)
+# ==========================================
+# 9. RESERVAS
+# ==========================================
 
-    reservas = []
+def cargar_reservas(n=80000):
+    clientes = pd.read_sql("SELECT id_cliente FROM clientes", engine)["id_cliente"].tolist()
+    empleados = pd.read_sql("SELECT id_empleado FROM empleados", engine)["id_empleado"].tolist()
+    tours = pd.read_sql("SELECT id_tour, precio_base FROM tours", engine)
 
-    for _ in range(50000):
-        cliente = df_clientes.sample(1).iloc[0]
-        empleado = df_empleados.sample(1).iloc[0]
-        tour = df_tours.sample(1).iloc[0]
+    data = []
+
+    for _ in range(n):
+        t = tours.sample(1).iloc[0]
 
         personas = random.randint(1, 6)
-        subtotal = float(tour["precio_base"]) * personas
-        descuento = round(subtotal * 0.1, 2) if random.random() < 0.3 else 0
-        total = subtotal - descuento
+        subtotal = float(t["precio_base"]) * personas
+        descuento = subtotal * 0.1 if random.random() < 0.3 else 0
 
-        reservas.append([
-            int(cliente["id_cliente"]),
-            int(tour["id_tour"]),
-            int(empleado["id_empleado"]),
-            fake.date_between("-2y", "today"),
+        data.append([
+            random.choice(clientes),
+            int(t["id_tour"]),
+            random.choice(empleados),
+            safe_date(fake.date_between, "-2y", "today"),
             personas,
             random.choice(["Pendiente", "Confirmada", "Cancelada"]),
-            round(subtotal, 2),
-            round(descuento, 2),
-            round(total, 2)
+            subtotal,
+            descuento,
+            subtotal - descuento
         ])
 
-    df = pd.DataFrame(reservas, columns=[
+    df = pd.DataFrame(data, columns=[
         "id_cliente", "id_tour", "id_empleado",
         "fecha_reserva", "cantidad_personas", "estado",
         "subtotal", "descuento", "total"
@@ -191,45 +268,50 @@ def cargar_reservas():
 
     df.to_sql("reservas", engine, if_exists="append", index=False)
 
+# ==========================================
+# 10. PAGOS + EVALUACIONES
+# ==========================================
+
 def cargar_pagos():
-    df_reservas = pd.read_sql("SELECT * FROM reservas", engine)
-    df_metodos = pd.read_sql("SELECT * FROM metodos_pago", engine)
+    reservas = pd.read_sql("SELECT * FROM reservas", engine)
+    metodos = pd.read_sql("SELECT * FROM metodos_pago", engine)
 
-    pagos = []
+    data = []
 
-    for _, r in df_reservas.iterrows():
-        metodo = df_metodos.sample(1).iloc[0]
+    for _, r in reservas.iterrows():
+        m = metodos.sample(1).iloc[0]
 
-        pagos.append([
+        data.append([
             int(r["id_reserva"]),
-            int(metodo["id_metodo_pago"]),
-            fake.date_between("-2y", "today"),
+            int(m["id_metodo_pago"]),
+            safe_date(fake.date_between, "-2y", "today"),
             float(r["total"]),
-            fake.uuid4()[:100]
+            fake.uuid4()[:50]
         ])
 
-    df = pd.DataFrame(pagos, columns=[
+    df = pd.DataFrame(data, columns=[
         "id_reserva", "id_metodo_pago",
         "fecha_pago", "monto", "referencia_pago"
     ])
 
     df.to_sql("pagos", engine, if_exists="append", index=False)
 
+
 def cargar_evaluaciones():
-    df_reservas = pd.read_sql("SELECT * FROM reservas", engine)
+    reservas = pd.read_sql("SELECT id_reserva FROM reservas", engine)
 
-    evaluaciones = []
+    data = []
 
-    for _, r in df_reservas.iterrows():
-        if random.random() < 0.7:
-            evaluaciones.append([
+    for _, r in reservas.iterrows():
+        if random.random() < 0.6:
+            data.append([
                 int(r["id_reserva"]),
                 random.randint(1, 5),
                 fake.sentence(),
-                fake.date_between("-2y", "today")
+                safe_date(fake.date_between, "-2y", "today")
             ])
 
-    df = pd.DataFrame(evaluaciones, columns=[
+    df = pd.DataFrame(data, columns=[
         "id_reserva", "puntuacion",
         "comentario", "fecha_evaluacion"
     ])
@@ -237,32 +319,32 @@ def cargar_evaluaciones():
     df.to_sql("evaluaciones", engine, if_exists="append", index=False)
 
 # ==========================================
-# 3. PIPELINE ETL
+# 11. PIPELINE
 # ==========================================
 
-pasos_etl = [
-    {"nombre": "Países", "funcion": cargar_paises},
-    {"nombre": "Categorías", "funcion": cargar_categorias},
-    {"nombre": "Métodos Pago", "funcion": cargar_metodos_pago},
-    {"nombre": "Clientes", "funcion": cargar_clientes},
-    {"nombre": "Empleados", "funcion": cargar_empleados},
-    {"nombre": "Destinos", "funcion": cargar_destinos},
-    {"nombre": "Tours", "funcion": cargar_tours},
-    {"nombre": "Reservas", "funcion": cargar_reservas},
-    {"nombre": "Pagos", "funcion": cargar_pagos},
-    {"nombre": "Evaluaciones", "funcion": cargar_evaluaciones},
+pasos = [
+    ("Países", cargar_paises),
+    ("Categorías", cargar_categorias),
+    ("Métodos pago", cargar_metodos_pago),
+    ("Clientes", cargar_clientes),
+    ("Empleados", cargar_empleados),
+    ("Destinos", cargar_destinos),
+    ("Tours", cargar_tours),
+    ("Reservas", cargar_reservas),
+    ("Pagos", cargar_pagos),
+    ("Evaluaciones", cargar_evaluaciones),
 ]
 
-print("Iniciando ETL en PostgreSQL...\n")
+print("🚀 Iniciando ETL...\n")
 
-with tqdm(total=len(pasos_etl)) as pbar:
-    for paso in pasos_etl:
+with tqdm(total=len(pasos)) as pbar:
+    for nombre, func in pasos:
         try:
-            paso["funcion"]()
-            tqdm.write(f"✔ {paso['nombre']} OK")
+            func()
+            print(f"✔ {nombre} OK")
         except Exception as e:
-            tqdm.write(f"❌ Error en {paso['nombre']}: {e}")
+            print(f"❌ Error en {nombre}: {e}")
             break
         pbar.update(1)
 
-print("\n✔ ETL finalizado en PostgreSQL")
+print("\n🎉 ETL FINALIZADO")

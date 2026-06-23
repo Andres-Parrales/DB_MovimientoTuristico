@@ -172,3 +172,23 @@ CREATE TABLE calendario (
     dia INT,
     nombre_dia VARCHAR(20)
 );
+
+
+-- =========================================
+-- ÍNDICES PARA ANALÍTICA Y POWER BI
+-- =========================================
+
+CREATE INDEX idx_reservas_fecha
+ON reservas(fecha_reserva);
+
+CREATE INDEX idx_reservas_cliente
+ON reservas(id_cliente);
+
+CREATE INDEX idx_reservas_tour
+ON reservas(id_tour);
+
+CREATE INDEX idx_pagos_fecha
+ON pagos(fecha_pago);
+
+CREATE INDEX idx_evaluaciones_reserva
+ON evaluaciones(id_reserva);
